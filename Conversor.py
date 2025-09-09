@@ -25,8 +25,7 @@ def converter():
 
     try:
         tabela = DBF(arquivo_dbf, encoding='latin1')
-
-        total_registros = len(tabela)  # usado para progresso
+        total_registros = len(tabela)
         progresso["maximum"] = total_registros
         progresso["value"] = 0
         root.update_idletasks()
@@ -44,7 +43,6 @@ def converter():
 
     except Exception as e:
         messagebox.showerror("Erro", f"Ocorreu um erro: {e}")
-
 
 # --- Interface gráfica ---
 root = tk.Tk()

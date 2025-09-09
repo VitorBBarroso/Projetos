@@ -7,9 +7,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.drawing.image import Image
 
-# Caminhos das logos
-logo_works = r'Y:\Power BI\Scritps\python\logo_works.jpg'
-logo_pressseg = r'Y:\Power BI\Scritps\python\logo_pressseg.png'
+logo_works =        r'Y:\Power BI\Scritps\python\Projetos\logo_works.jpg'
+logo_pressseg =     r'Y:\Power BI\Scritps\python\Projetos\logo_pressseg.png'
 
 def gerar_relatorio():
     try:
@@ -20,7 +19,6 @@ def gerar_relatorio():
             messagebox.showerror("Erro", "Informe corretamente o mês e o ano!")
             return
 
-        # Seleção do arquivo
         arquivo_excel = filedialog.askopenfilename(
             title="Selecione a base de dados",
             filetypes=[("Planilhas", "*.xlsx *.xls *.ods *.csv")]
@@ -32,15 +30,12 @@ def gerar_relatorio():
             df = pd.read_excel(arquivo_excel, engine="openpyxl")
         elif ext == ".xls":
             df = pd.read_excel(arquivo_excel, engine="xlrd")
-        elif ext == ".ods":
-            df = pd.read_excel(arquivo_excel, engine="odf")
         elif ext == ".csv":
             df = pd.read_csv(arquivo_excel, sep=";", encoding="latin1")
         else:
             messagebox.showerror("Erro", "Formato de arquivo não suportado!")
             return
 
-        # Padronizar colunas
         df.columns = df.columns.str.lower().str.strip()
 
         coluna_posto = "posto"
@@ -77,7 +72,6 @@ def gerar_relatorio():
             nome_limpo = re.sub(r'[:\\/*?\[\]]', '_', str(nome))
             return nome_limpo[:31]
 
-        # Seleção do arquivo de saída
         saida = filedialog.asksaveasfilename(
             title="Salvar Relatório",
             defaultextension=".xlsx",
@@ -87,7 +81,6 @@ def gerar_relatorio():
         if not saida:
             return
 
-        # Geração das abas
         with pd.ExcelWriter(saida, engine="openpyxl") as writer:
             abas_criadas = 0
             for posto, bloco_posto in df.groupby(coluna_posto):
@@ -108,16 +101,12 @@ def gerar_relatorio():
                     })
                 )
 
-                # --- Separar Noturnos e Diurnos ---
-                diurnos = resultado[resultado["TURNO"] == "DIURNO"]
-                noturnos = resultado[resultado["TURNO"] == "NOTURNO"]
+                diurnos = resultado[resultado["TURNO"]      == "DIURNO"]
+                noturnos = resultado[resultado["TURNO"]     == "NOTURNO"]
 
-                # Linha em branco com as mesmas colunas
                 linha_vazia = pd.DataFrame([[""] * len(resultado.columns)], columns=resultado.columns)
 
-                # Pula uma linha entre eles (Noturnos primeiro)
                 resultado_final = pd.concat([diurnos, linha_vazia, noturnos], ignore_index=True)
-
 
                 nome_aba = "Indefinido" if pd.isna(posto) else limpar_nome_aba(posto)
                 resultado_final.to_excel(writer, sheet_name=nome_aba, index=False, startrow=14, startcol=0)
@@ -127,7 +116,6 @@ def gerar_relatorio():
                 resumo = pd.DataFrame({"Mensagem": ["Nenhum dado válido encontrado para gerar o relatório."]})
                 resumo.to_excel(writer, sheet_name="Resumo", index=False)
 
-        # --- Formatação do Excel ---
         wb = load_workbook(saida)
         fonte = Font(name="Arial", size=7)
         fonte_cnpj = Font(name="Arial", size=6)
@@ -143,18 +131,7 @@ def gerar_relatorio():
 
         for aba in wb.sheetnames:
             ws = wb[aba]
-            if combo_Empresa.get() == 'Works':
-                if os.path.exists(logo_works):
-                    img = Image(logo_works)
-                    img.width, img.height = 134, 104
-                    ws.add_image(img, "C1")
-            else:
-                if os.path.exists(logo_pressseg):
-                    img = Image(logo_pressseg)
-                    img.width, img.height = 251, 85
-                    ws.add_image(img, "C1")
 
-            # Função aplicar borda em células mescladas
             def aplicar_borda(range_str):
                 start_cell, end_cell = range_str.split(":")
                 start_col, start_row = ws[start_cell].column, ws[start_cell].row
@@ -164,12 +141,49 @@ def gerar_relatorio():
                     for cell in row:
                         cell.border = borda
 
-            # Cabeçalhos fixos
-            cabecalhos = [
-                ("A7:E7", "Endereço: R. Conselheiro Ribas, 297 - Vila Anastácio, São Paulo - SP, 05093-060", fonte),
-                ("A8:E8", "CNPJ: 56.419.492/0001-09     Telefone: (11) 4563-9017", fonte),
-                ("A9:E9", "CONTRATO Nº 83/SME/2024 - P.E. 23/SME/2023     Processo Administrativo 6016.2024/0043414-0", fonte_cnpj)
-            ]
+            # --- pega os valores digitados ---
+            contrato = entry_contrato.get() or "NÃO INFORMADO"
+            pe = entry_pe.get() or "NÃO INFORMADO"
+            processo = entry_processo.get() or "NÃO INFORMADO"
+
+            # --- pega os valores digitados ---
+            contrato = entry_contrato.get() or "NÃO INFORMADO"
+            pe = entry_pe.get() or "NÃO INFORMADO"
+            processo = entry_processo.get() or "NÃO INFORMADO"
+
+            # Última coluna do relatório
+            ultima_coluna = "E"
+
+            if combo_Empresa.get() == 'Works':
+                # Logo
+                if os.path.exists(logo_works):
+                    img = Image(logo_works)
+                    img.width, img.height = 134, 104
+                    ws.add_image(img, "C1")
+
+                # Cabeçalhos WORKS
+                cabecalhos = [
+                    (f"A7:{ultima_coluna}7", "Endereço: R. Conselheiro Ribas, 297 - Vila Anastácio, São Paulo - SP, 05093-060", fonte),
+                    (f"A8:{ultima_coluna}8", "CNPJ: 56.419.492/0001-09     Telefone: (11) 4563-9017", fonte),
+                    (f"A9:{ultima_coluna}9", f"CONTRATO Nº {contrato} - Processo Administrativo {processo}", fonte_cnpj)
+                ]
+
+                
+            else:  # Pressseg
+                # Logo
+                if os.path.exists(logo_pressseg):
+                    img = Image(logo_pressseg)
+                    img.width, img.height = 251, 85
+                    ws.add_image(img, "C1")
+
+                # Cabeçalhos PRESSSEG
+                cabecalhos = [
+                    (f"A7:{ultima_coluna}7", "Endereço: R. Bernardo Guimarães, 210 - Vila Anastácio, São Paulo - SP, 05092-030", fonte),
+                    (f"A8:{ultima_coluna}8", "CNPJ: 08818229/0001-40     Telefone: (11) 2507-2170", fonte),
+                    (f"A9:{ultima_coluna}9", f"CONTRATO Nº {contrato} - Processo Administrativo {processo}", fonte_cnpj)
+                ]
+
+            # Aplica os cabeçalhos
             for range_str, texto, fnt in cabecalhos:
                 start_cell = range_str.split(":")[0]
                 ws.merge_cells(range_str)
@@ -178,44 +192,38 @@ def gerar_relatorio():
                 ws[start_cell].alignment = alinhamento_centro
                 aplicar_borda(range_str)
 
-            # Nome do posto
+
             ws.merge_cells("A10:E10")
             ws["A10"].value = aba
             ws["A10"].font = fonte_titulo
             ws["A10"].alignment = alinhamento_centro
             aplicar_borda("A10:E10")
 
-            # Mês de referência
             ws.merge_cells("A11:E11")
             ws["A11"].value = f"Mês de Referência: 01 a 31 de {mes} de {ano}"
             ws["A11"].font = fonte_negrito
             ws["A11"].alignment = alinhamento_centro
             aplicar_borda("A11:E11")
 
-            # Cabeçalho da tabela
-            for col in range(1, 6):  # A a E (5 colunas: RE, Nome, Função, Turno, Dias)
+            for col in range(1, 6):
                 cell = ws.cell(row=13, column=col)
                 cell.font = fonte_negrito
                 cell.alignment = alinhamento_centro
                 cell.border = borda
 
-            # Dados da tabela
             for row in ws.iter_rows(min_row=16, max_row=ws.max_row, min_col=1, max_col=5):
                 for cell in row:
                     if cell.value is not None:
                         cell.font = fonte
                         cell.alignment = alinhamento_centro
                         cell.border = borda
-
+            
             ultima_linha = ws.max_row + 2
-
-            # Rodapé
             ws.merge_cells(start_row=ultima_linha, start_column=1, end_row=ultima_linha, end_column=5)
             ws.cell(row=ultima_linha, column=1).value = f"São Paulo, 01 de {mes} de {ano}"
             ws.cell(row=ultima_linha, column=1).font = fonte_negrito
             ws.cell(row=ultima_linha, column=1).alignment = alinhamento_centro
 
-            # Assinaturas
             linha_assinatura = ultima_linha + 3
             ws.merge_cells(start_row=linha_assinatura, start_column=1, end_row=linha_assinatura, end_column=2)
             ws.cell(row=linha_assinatura, column=1).value = "________________________"
@@ -225,7 +233,6 @@ def gerar_relatorio():
             ws.cell(row=linha_assinatura, column=4).value = "________________________"
             ws.cell(row=linha_assinatura, column=4).alignment = Alignment(horizontal="left", vertical="center")
 
-            # Títulos das assinaturas
             ws.cell(row=linha_assinatura + 1, column=1).value = "Fiscal de Contrato"
             ws.cell(row=linha_assinatura + 1, column=1).font = fonte_negrito
             ws.cell(row=linha_assinatura + 1, column=1).alignment = Alignment(horizontal="left", vertical="center")
@@ -240,8 +247,6 @@ def gerar_relatorio():
     except Exception as e:
         messagebox.showerror("Erro", str(e))
 
-
-# --- INTERFACE TKINTER ---
 root = tk.Tk()
 root.title("📊 Gerador de Relatório por Posto e Turno")
 root.geometry("500x350")
@@ -277,6 +282,22 @@ combo_mes.grid(row=0, column=3, padx=5)
 tk.Label(frame_data, text="Ano:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=0, column=5, padx=5)
 entry_ano = tk.Entry(frame_data, width=8)
 entry_ano.grid(row=0, column=6, padx=5)
+
+# --- CAMPOS CONTRATO / P.E. / PROCESSO --- 
+frame_contrato = ttk.Frame(frame)
+frame_contrato.pack(pady=5)
+
+tk.Label(frame_contrato, text="Contrato:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=0, column=0, padx=5)
+entry_contrato = tk.Entry(frame_contrato, width=20)
+entry_contrato.grid(row=0, column=1, padx=5)
+
+tk.Label(frame_contrato, text="P.E.:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=1, column=0, padx=5)
+entry_pe = tk.Entry(frame_contrato, width=20)
+entry_pe.grid(row=1, column=1, padx=5)
+
+tk.Label(frame_contrato, text="Processo Adm.:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=2, column=0, padx=5)
+entry_processo = tk.Entry(frame_contrato, width=25)
+entry_processo.grid(row=2, column=1, padx=5, columnspan=3)
 
 btn = ttk.Button(frame, text="📂 Selecionar e Gerar Relatório", command=gerar_relatorio)
 btn.pack(pady=20)

@@ -5,7 +5,6 @@ import os
 import string
 import datetime
 
-# Dicionário de meses
 MESES = {
     'Janeiro': '01', 'Fevereiro': '02', 'Março': '03', 'Abril': '04',
     'Maio': '05', 'Junho': '06', 'Julho': '07', 'Agosto': '08',
@@ -18,10 +17,10 @@ def completar_zeros(valor, tamanho):
 
 def gerar_codigo(filial, re, mes, ano, sufixo):
     return (
-        completar_zeros(filial, 4) +
-        completar_zeros(re, 7) +
-        completar_zeros(mes, 2) +
-        completar_zeros(ano, 4) +
+        completar_zeros(filial, 4)  +
+        completar_zeros(re, 7)      +
+        completar_zeros(mes, 2)     +
+        completar_zeros(ano, 4)     +
         completar_zeros(sufixo, 4)
     )
 

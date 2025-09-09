@@ -7,14 +7,13 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.drawing.image import Image
 
-# Caminho da logo
-logo = r'Y:\Power BI\Scritps\python\logo.jpg'
+logo = r'Y:\Power BI\Scritps\python\Projetos\logo_works.jpg'
 
 def gerar_relatorio():
     try:
         mes = combo_mes.get()
         ano = entry_ano.get()
-
+        
         if not mes or not ano.isdigit():
             messagebox.showerror("Erro", "Informe corretamente o mês e o ano!")
             return
@@ -31,8 +30,6 @@ def gerar_relatorio():
             df = pd.read_excel(arquivo_excel, engine="openpyxl")
         elif ext == ".xls":
             df = pd.read_excel(arquivo_excel, engine="xlrd")
-        elif ext == ".ods":
-            df = pd.read_excel(arquivo_excel, engine="odf")
         elif ext == ".csv":
             df = pd.read_csv(arquivo_excel, sep=";", encoding="latin1")
         else:
@@ -45,17 +42,13 @@ def gerar_relatorio():
         coluna_re = "re"
         coluna_nome = "nome"
         coluna_funcao = "desc_cargo"
-        coluna_csituacao = "csituacao"
-        coluna_csithoje = "csithoje"
 
-        # Filtragem
-        df = df[df[coluna_csituacao].isin([10, 11])]
-        df = df[~df[coluna_csithoje].isin([2, 13, 14])]
-
+        # --- Função auxiliar para limpar nomes de abas ---
         def limpar_nome_aba(nome):
             nome_limpo = re.sub(r'[:\\/*?\[\]]', '_', str(nome))
             return nome_limpo[:31]
 
+        # --- Arquivo de saída ---
         saida = filedialog.asksaveasfilename(
             title="Salvar Relatório",
             defaultextension=".xlsx",
@@ -71,16 +64,35 @@ def gerar_relatorio():
                 if bloco_posto.empty:
                     continue
 
+                # Contar dias trabalhados (só para filtro)
                 resultado = (
                     bloco_posto.groupby([coluna_re, coluna_nome, coluna_funcao])
                     .size()
-                    .reset_index()
-                    .drop(columns=0, errors="ignore")
+                    .reset_index(name="dias_trabalhados")
                 )
 
-                nome_aba = "Indefinido" if pd.isna(posto) else limpar_nome_aba(posto)
-                resultado.to_excel(writer, sheet_name=nome_aba, index=False, startrow=14, startcol=0)  # startcol=0
-                abas_criadas += 1
+                # Filtrar apenas quem trabalhou >= 15 dias
+                resultado = resultado[resultado["dias_trabalhados"] >= 15]
+
+                if not resultado.empty:
+                    # Remover a coluna "dias_trabalhados" (apenas filtro)
+                    resultado = resultado.drop(columns=["dias_trabalhados"])
+
+                    # Colunas em maiúsculo
+                    resultado.columns = [col.upper() for col in resultado.columns]
+
+                    nome_aba = "Indefinido" if pd.isna(posto) else limpar_nome_aba(posto)
+
+                    # Escrever com cabeçalho na linha 15 (startrow=14 -> header ficará em linha 15)
+                    resultado.to_excel(
+                        writer,
+                        sheet_name=nome_aba,
+                        index=False,
+                        startrow=14,   # header ficará na linha 15, dados a partir da 16
+                        startcol=0,
+                        header=True
+                    )
+                    abas_criadas += 1
 
             if abas_criadas == 0:
                 resumo = pd.DataFrame({"Mensagem": ["Nenhum dado válido encontrado para gerar o relatório."]})
@@ -88,10 +100,10 @@ def gerar_relatorio():
 
         # --- Formatação Excel ---
         wb = load_workbook(saida)
-        fonte = Font(name="Arial", size=9)
-        fonte_cnpj = Font(name="Arial", size=8)
-        fonte_negrito = Font(name="Arial", size=10, bold=True)
-        fonte_titulo = Font(name="Arial", size=12, bold=True)
+        fonte = Font(name="Arial", size=7)
+        fonte_cnpj = Font(name="Arial", size=6)
+        fonte_negrito = Font(name="Arial", size=8, bold=True)
+        fonte_titulo = Font(name="Arial", size=10, bold=True)
         alinhamento_centro = Alignment(horizontal="center", vertical="center")
         borda = Border(
             left=Side(border_style="thin"),
@@ -105,13 +117,12 @@ def gerar_relatorio():
 
             # Logo centralizado
             if os.path.exists(logo):
-                img = Image(logo)
-                img.width, img.height = 134, 104  # dimensões da imagem
-                coluna_b = ws.column_dimensions['B'].width
-                if not coluna_b:
-                    coluna_b = 32.43
-                ws.add_image(img, "B1")
-
+                try:
+                    img = Image(logo)
+                    img.width, img.height = 134, 104
+                    ws.add_image(img, "B1")
+                except Exception:
+                    pass  # não quebra se imagem tiver problema
 
             # Função para aplicar borda em células mescladas
             def aplicar_borda(range_str):
@@ -123,90 +134,115 @@ def gerar_relatorio():
                     for cell in row:
                         cell.border = borda
 
-            # Cabeçalho
+            # --- pega os valores digitados ---
+            contrato = entry_contrato.get() or "NÃO INFORMADO"
+            pe = entry_pe.get() or "NÃO INFORMADO"
+            processo = entry_processo.get() or "NÃO INFORMADO"
+
+            # Cabeçalhos fixos
             cabecalhos = [
                 ("A7:C7", "Endereço: R. Conselheiro Ribas, 297 - Vila Anastácio, São Paulo - SP, 05093-060", fonte),
                 ("A8:C8", "CNPJ: 56.419.492/0001-09     Telefone: (11) 4563-9017", fonte),
-                ("A9:C9", "CONTRATO Nº 83/SME/2024 - P.E. 23/SME/2023     Processo Administrativo 6016.2024/0043414-0", fonte_cnpj)
+                ("A9:C9", f"CONTRATO Nº {contrato} - P.E. {pe}     Processo Administrativo {processo}", fonte_cnpj)
             ]
-
             for range_str, texto, fnt in cabecalhos:
                 start_cell = range_str.split(":")[0]
-                ws.merge_cells(range_str)
-                ws[start_cell].value = texto
-                ws[start_cell].font = fnt
-                ws[start_cell].alignment = alinhamento_centro
-                aplicar_borda(range_str)
+                try:
+                    ws.merge_cells(range_str)
+                    ws[start_cell].value = texto
+                    ws[start_cell].font = fnt
+                    ws[start_cell].alignment = alinhamento_centro
+                    aplicar_borda(range_str)
+                except Exception:
+                    pass  # evita crash caso a planilha seja pequena
 
             # Nome do posto
-            ws.merge_cells("A10:C10")
-            ws["A10"].value = aba
-            ws["A10"].font = fonte_titulo
-            ws["A10"].alignment = alinhamento_centro
-            aplicar_borda("A10:C10")
+            try:
+                ws.merge_cells("A10:C10")
+                ws["A10"].value = aba
+                ws["A10"].font = fonte_titulo
+                ws["A10"].alignment = alinhamento_centro
+                aplicar_borda("A10:C10")
+            except Exception:
+                pass
 
             # Mês de referência
-            ws.merge_cells("A11:C11")
-            ws["A11"].value = f"Mês de Referência: 01 a 31 de {mes} de {ano}"
-            ws["A11"].font = fonte_negrito
-            ws["A11"].alignment = alinhamento_centro
-            aplicar_borda("A11:C11")
+            try:
+                ws.merge_cells("A11:C11")
+                ws["A11"].value = f"Mês de Referência: 01 a 31 de {mes} de {ano}"
+                ws["A11"].font = fonte_negrito
+                ws["A11"].alignment = alinhamento_centro
+                aplicar_borda("A11:C11")
+            except Exception:
+                pass
 
-            # Cabeçalho da tabela
-            for col in range(1, 4):  # col 1 a 3 (A a C)
-                cell = ws.cell(row=15, column=col)
-                cell.font = fonte_negrito
-                cell.alignment = alinhamento_centro
-                cell.border = borda
+            # Se a planilha possui o formato esperado (header na linha 15)
+            if ws.max_row >= 15:
+                # Cabeçalho da tabela (linha 15) -> CAPS LOCK + negrito
+                for col in range(1, ws.max_column + 1):
+                    cell = ws.cell(row=15, column=col)
+                    if cell.value:
+                        cell.value = str(cell.value).upper()
+                    cell.font = fonte_negrito
+                    cell.alignment = alinhamento_centro
+                    cell.border = borda
 
-            # Dados da tabela
-            for row in ws.iter_rows(min_row=15, max_row=ws.max_row, min_col=1, max_col=3):
-                for cell in row:
-                    if cell.value is not None:
-                        cell.font = fonte
-                        cell.alignment = alinhamento_centro
-                        cell.border = borda
+                # Dados da tabela (a partir da linha 16)
+                for row in ws.iter_rows(min_row=16, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                    for cell in row:
+                        if cell.value is not None:
+                            cell.font = fonte
+                            cell.alignment = alinhamento_centro
+                            cell.border = borda
+            else:
+                # Planilha pequena (ex.: Resumo) — aplicar formatação simples para o conteúdo existente
+                for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                    for cell in row:
+                        if cell.value is not None:
+                            cell.font = fonte
+                            cell.alignment = alinhamento_centro
+                            cell.border = borda
 
             ultima_linha = ws.max_row + 2
-
-            # Rodapé
- # --- Rodapé com mês +1 ---
+            # --- Rodapé com mês +1 ---
             meses = [
                 "janeiro","fevereiro","março","abril","maio","junho",
                 "julho","agosto","setembro","outubro","novembro","dezembro"
             ]
+            try:
+                indice_mes = meses.index(mes)
+                mes_rodape = meses[(indice_mes + 1) % 12]
+            except ValueError:
+                mes_rodape = mes  # caso o mês não esteja na lista, usar o mesmo
 
-            indice_mes = meses.index(mes)  # pega índice do mês selecionado
-            mes_rodape = meses[(indice_mes + 1) % 12]  # próximo mês, volta para janeiro se dezembro
-
-            ultima_linha = ws.max_row + 2
-            ws.merge_cells(start_row=ultima_linha, start_column=1, end_row=ultima_linha, end_column=3)
-            ws.cell(row=ultima_linha, column=1).value = f"São Paulo, 01 de {mes_rodape} de {ano}"
-            ws.cell(row=ultima_linha, column=1).font = fonte_negrito
-            ws.cell(row=ultima_linha, column=1).alignment = alinhamento_centro
-
+            try:
+                ws.merge_cells(start_row=ultima_linha, start_column=1, end_row=ultima_linha, end_column=3)
+                ws.cell(row=ultima_linha, column=1).value = f"São Paulo, 01 de {mes_rodape} de {ano}"
+                ws.cell(row=ultima_linha, column=1).font = fonte_negrito
+                ws.cell(row=ultima_linha, column=1).alignment = alinhamento_centro
+            except Exception:
+                pass
 
             # Assinaturas
             linha_assinatura = ultima_linha + 3
-            # Fiscal de Contrato (à esquerda)
-            ws.merge_cells(start_row=linha_assinatura, start_column=1, end_row=linha_assinatura, end_column=2)
-            ws.cell(row=linha_assinatura, column=1).value = "________________________"
-            alinhamento_esquerda = Alignment(horizontal="left", vertical="center")
-            ws.cell(row=linha_assinatura, column=1).alignment = alinhamento_esquerda
+            try:
+                ws.merge_cells(start_row=linha_assinatura, start_column=1, end_row=linha_assinatura, end_column=2)
+                ws.cell(row=linha_assinatura, column=1).value = "________________________"
+                ws.cell(row=linha_assinatura, column=1).alignment = Alignment(horizontal="left", vertical="center")
 
-            # Supervisão (mantém à direita)
-            ws.merge_cells(start_row=linha_assinatura, start_column=3, end_row=linha_assinatura, end_column=4)
-            ws.cell(row=linha_assinatura, column=3).value = "________________________"
-            ws.cell(row=linha_assinatura, column=3).alignment = alinhamento_centro
+                ws.merge_cells(start_row=linha_assinatura, start_column=3, end_row=linha_assinatura, end_column=4)
+                ws.cell(row=linha_assinatura, column=3).value = "________________________"
+                ws.cell(row=linha_assinatura, column=3).alignment = alinhamento_centro
 
-            # Títulos abaixo das assinaturas
-            ws.cell(row=linha_assinatura + 1, column=1).value = "Fiscal de Contrato"
-            ws.cell(row=linha_assinatura + 1, column=1).font = fonte_negrito
-            ws.cell(row=linha_assinatura + 1, column=1).alignment = alinhamento_esquerda
+                ws.cell(row=linha_assinatura + 1, column=1).value = "Fiscal de Contrato"
+                ws.cell(row=linha_assinatura + 1, column=1).font = fonte_negrito
+                ws.cell(row=linha_assinatura + 1, column=1).alignment = Alignment(horizontal="left", vertical="center")
 
-            ws.cell(row=linha_assinatura + 1, column=3).value = "Supervisão"
-            ws.cell(row=linha_assinatura + 1, column=3).font = fonte_negrito
-            ws.cell(row=linha_assinatura + 1, column=3).alignment = alinhamento_centro
+                ws.cell(row=linha_assinatura + 1, column=3).value = "Supervisão"
+                ws.cell(row=linha_assinatura + 1, column=3).font = fonte_negrito
+                ws.cell(row=linha_assinatura + 1, column=3).alignment = alinhamento_centro
+            except Exception:
+                pass
 
         wb.save(saida)
         messagebox.showinfo("Sucesso", f"Relatório salvo em:\n{saida}")
@@ -247,6 +283,22 @@ combo_mes.grid(row=0, column=1, padx=5)
 tk.Label(frame_data, text="Ano:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=0, column=2, padx=5)
 entry_ano = tk.Entry(frame_data, width=8)
 entry_ano.grid(row=0, column=3, padx=5)
+
+# --- CAMPOS CONTRATO / P.E. / PROCESSO --- 
+frame_contrato = ttk.Frame(frame)
+frame_contrato.pack(pady=5)
+
+tk.Label(frame_contrato, text="Contrato:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=0, column=0, padx=5)
+entry_contrato = tk.Entry(frame_contrato, width=20)
+entry_contrato.grid(row=0, column=1, padx=5)
+
+tk.Label(frame_contrato, text="P.E.:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=1, column=0, padx=5)
+entry_pe = tk.Entry(frame_contrato, width=20)
+entry_pe.grid(row=1, column=1, padx=5)
+
+tk.Label(frame_contrato, text="Processo Adm.:", font=("Segoe UI", 11), background="#f4f4f4").grid(row=2, column=0, padx=5)
+entry_processo = tk.Entry(frame_contrato, width=25)
+entry_processo.grid(row=2, column=1, padx=5, columnspan=3)
 
 btn = ttk.Button(frame, text="📂 Selecionar e Gerar Relatório", command=gerar_relatorio)
 btn.pack(pady=20)
