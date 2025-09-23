@@ -78,6 +78,9 @@ def gerar_relatorio():
                     # Remover a coluna "dias_trabalhados" (apenas filtro)
                     resultado = resultado.drop(columns=["dias_trabalhados"])
 
+                    # 🔹 Renomear "desc_cargo" -> "cargo"
+                    resultado = resultado.rename(columns={"desc_cargo": "cargo"})
+
                     # Colunas em maiúsculo
                     resultado.columns = [col.upper() for col in resultado.columns]
 
@@ -88,7 +91,7 @@ def gerar_relatorio():
                         writer,
                         sheet_name=nome_aba,
                         index=False,
-                        startrow=14,   # header ficará na linha 15, dados a partir da 16
+                        startrow=14,
                         startcol=0,
                         header=True
                     )
@@ -227,12 +230,12 @@ def gerar_relatorio():
             linha_assinatura = ultima_linha + 3
             try:
                 ws.merge_cells(start_row=linha_assinatura, start_column=1, end_row=linha_assinatura, end_column=2)
-                ws.cell(row=linha_assinatura, column=1).value = "________________________"
+                ws.cell(row=linha_assinatura, column=1).value = "_______________"
                 ws.cell(row=linha_assinatura, column=1).alignment = Alignment(horizontal="left", vertical="center")
 
-                ws.merge_cells(start_row=linha_assinatura, start_column=3, end_row=linha_assinatura, end_column=4)
-                ws.cell(row=linha_assinatura, column=3).value = "________________________"
-                ws.cell(row=linha_assinatura, column=3).alignment = alinhamento_centro
+                ws.merge_cells(start_row=linha_assinatura, start_column=3, end_row=linha_assinatura, end_column=3)
+                ws.cell(row=linha_assinatura, column=3).value = "_______________"
+                ws.cell(row=linha_assinatura, column=3).alignment = Alignment(horizontal="left", vertical="center")
 
                 ws.cell(row=linha_assinatura + 1, column=1).value = "Fiscal de Contrato"
                 ws.cell(row=linha_assinatura + 1, column=1).font = fonte_negrito
@@ -240,7 +243,7 @@ def gerar_relatorio():
 
                 ws.cell(row=linha_assinatura + 1, column=3).value = "Supervisão"
                 ws.cell(row=linha_assinatura + 1, column=3).font = fonte_negrito
-                ws.cell(row=linha_assinatura + 1, column=3).alignment = alinhamento_centro
+                ws.cell(row=linha_assinatura + 1, column=3).alignment = Alignment(horizontal="left", vertical="center")
             except Exception:
                 pass
 

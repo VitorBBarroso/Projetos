@@ -7,8 +7,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.drawing.image import Image
 
-logo_works =        r'Y:\Power BI\Scritps\python\Projetos\logo_works.jpg'
-logo_pressseg =     r'Y:\Power BI\Scritps\python\Projetos\logo_pressseg.png'
+logo_works = r'Y:\Power BI\Scritps\python\Projetos\logo_works.jpg'
+logo_pressseg = r'Y:\Power BI\Scritps\python\Projetos\logo_pressseg.png'
 
 def gerar_relatorio():
     try:
@@ -25,6 +25,7 @@ def gerar_relatorio():
         )
         if not arquivo_excel:
             return
+
         ext = os.path.splitext(arquivo_excel)[1].lower()
         if ext == ".xlsx":
             df = pd.read_excel(arquivo_excel, engine="openpyxl")
@@ -50,9 +51,11 @@ def gerar_relatorio():
         df[coluna_data] = pd.to_datetime(df[coluna_data], dayfirst=True, errors="coerce")
         df["dia"] = df[coluna_data].dt.day
 
+        # Filtros
         df = df[df[coluna_csituacao].isin([10, 11])]
         df = df[~df[coluna_csithoje].isin([2, 13, 14])]
 
+        # Definir turno
         def definir_turno(hora_inicio):
             try:
                 if isinstance(hora_inicio, str) and ":" in hora_inicio:
@@ -68,10 +71,12 @@ def gerar_relatorio():
 
         df["turno"] = df[coluna_hora].apply(definir_turno)
 
+        # Nome da aba
         def limpar_nome_aba(nome):
             nome_limpo = re.sub(r'[:\\/*?\[\]]', '_', str(nome))
             return nome_limpo[:31]
 
+        # Saída
         saida = filedialog.asksaveasfilename(
             title="Salvar Relatório",
             defaultextension=".xlsx",
@@ -81,6 +86,7 @@ def gerar_relatorio():
         if not saida:
             return
 
+        # Geração do Excel
         with pd.ExcelWriter(saida, engine="openpyxl") as writer:
             abas_criadas = 0
             for posto, bloco_posto in df.groupby(coluna_posto):
@@ -95,17 +101,16 @@ def gerar_relatorio():
                     .rename(columns={
                         coluna_re: "RE",
                         coluna_nome: "NOME",
-                        coluna_funcao: "FUNÇÃO",
+                        coluna_funcao: "CARGO",
                         "turno": "TURNO",
                         coluna_data: "DIAS TRABALHADOS"
                     })
                 )
 
-                diurnos = resultado[resultado["TURNO"]      == "DIURNO"]
-                noturnos = resultado[resultado["TURNO"]     == "NOTURNO"]
-
+                # Quebra entre diurno e noturno
+                diurnos = resultado[resultado["turno"] == "DIURNO"]
+                noturnos = resultado[resultado["turno"] == "NOTURNO"]
                 linha_vazia = pd.DataFrame([[""] * len(resultado.columns)], columns=resultado.columns)
-
                 resultado_final = pd.concat([diurnos, linha_vazia, noturnos], ignore_index=True)
 
                 nome_aba = "Indefinido" if pd.isna(posto) else limpar_nome_aba(posto)
@@ -116,6 +121,7 @@ def gerar_relatorio():
                 resumo = pd.DataFrame({"Mensagem": ["Nenhum dado válido encontrado para gerar o relatório."]})
                 resumo.to_excel(writer, sheet_name="Resumo", index=False)
 
+        # --- Formatação ---
         wb = load_workbook(saida)
         fonte = Font(name="Arial", size=7)
         fonte_cnpj = Font(name="Arial", size=6)
@@ -141,49 +147,37 @@ def gerar_relatorio():
                     for cell in row:
                         cell.border = borda
 
-            # --- pega os valores digitados ---
+            # Dados do cabeçalho
             contrato = entry_contrato.get() or "NÃO INFORMADO"
             pe = entry_pe.get() or "NÃO INFORMADO"
             processo = entry_processo.get() or "NÃO INFORMADO"
 
-            # --- pega os valores digitados ---
-            contrato = entry_contrato.get() or "NÃO INFORMADO"
-            pe = entry_pe.get() or "NÃO INFORMADO"
-            processo = entry_processo.get() or "NÃO INFORMADO"
-
-            # Última coluna do relatório
             ultima_coluna = "E"
 
+            # Logo + Cabeçalho
             if combo_Empresa.get() == 'Works':
-                # Logo
                 if os.path.exists(logo_works):
                     img = Image(logo_works)
                     img.width, img.height = 134, 104
                     ws.add_image(img, "C1")
 
-                # Cabeçalhos WORKS
                 cabecalhos = [
                     (f"A7:{ultima_coluna}7", "Endereço: R. Conselheiro Ribas, 297 - Vila Anastácio, São Paulo - SP, 05093-060", fonte),
                     (f"A8:{ultima_coluna}8", "CNPJ: 56.419.492/0001-09     Telefone: (11) 4563-9017", fonte),
-                    (f"A9:{ultima_coluna}9", f"CONTRATO Nº {contrato} - Processo Administrativo {processo}", fonte_cnpj)
+                    (f"A9:{ultima_coluna}9", f"CONTRATO Nº {contrato} - P.E. {pe}     Processo Administrativo {processo}", fonte_cnpj)
                 ]
-
-                
             else:  # Pressseg
-                # Logo
                 if os.path.exists(logo_pressseg):
                     img = Image(logo_pressseg)
                     img.width, img.height = 251, 85
                     ws.add_image(img, "C1")
 
-                # Cabeçalhos PRESSSEG
                 cabecalhos = [
                     (f"A7:{ultima_coluna}7", "Endereço: R. Bernardo Guimarães, 210 - Vila Anastácio, São Paulo - SP, 05092-030", fonte),
                     (f"A8:{ultima_coluna}8", "CNPJ: 08818229/0001-40     Telefone: (11) 2507-2170", fonte),
-                    (f"A9:{ultima_coluna}9", f"CONTRATO Nº {contrato} - Processo Administrativo {processo}", fonte_cnpj)
+                    (f"A9:{ultima_coluna}9", f"CONTRATO Nº {contrato} - P.E. {pe}     Processo Administrativo {processo}", fonte_cnpj)
                 ]
 
-            # Aplica os cabeçalhos
             for range_str, texto, fnt in cabecalhos:
                 start_cell = range_str.split(":")[0]
                 ws.merge_cells(range_str)
@@ -192,38 +186,55 @@ def gerar_relatorio():
                 ws[start_cell].alignment = alinhamento_centro
                 aplicar_borda(range_str)
 
-
+            # Nome do posto
             ws.merge_cells("A10:E10")
             ws["A10"].value = aba
             ws["A10"].font = fonte_titulo
             ws["A10"].alignment = alinhamento_centro
             aplicar_borda("A10:E10")
 
+            # Mês referência
             ws.merge_cells("A11:E11")
             ws["A11"].value = f"Mês de Referência: 01 a 31 de {mes} de {ano}"
             ws["A11"].font = fonte_negrito
             ws["A11"].alignment = alinhamento_centro
             aplicar_borda("A11:E11")
 
+            # Cabeçalho tabela (linha 15)
             for col in range(1, 6):
-                cell = ws.cell(row=13, column=col)
+                cell = ws.cell(row=15, column=col)
+                if cell.value:
+                    cell.value = str(cell.value).lower()
                 cell.font = fonte_negrito
                 cell.alignment = alinhamento_centro
                 cell.border = borda
 
+            # Dados tabela
             for row in ws.iter_rows(min_row=16, max_row=ws.max_row, min_col=1, max_col=5):
                 for cell in row:
                     if cell.value is not None:
                         cell.font = fonte
                         cell.alignment = alinhamento_centro
                         cell.border = borda
-            
+
+            # Rodapé
             ultima_linha = ws.max_row + 2
+            meses = [
+                "janeiro","fevereiro","março","abril","maio","junho",
+                "julho","agosto","setembro","outubro","novembro","dezembro"
+            ]
+            try:
+                indice_mes = meses.index(mes)
+                mes_rodape = meses[(indice_mes + 1) % 12]
+            except ValueError:
+                mes_rodape = mes
+
             ws.merge_cells(start_row=ultima_linha, start_column=1, end_row=ultima_linha, end_column=5)
-            ws.cell(row=ultima_linha, column=1).value = f"São Paulo, 01 de {mes} de {ano}"
+            ws.cell(row=ultima_linha, column=1).value = f"São Paulo, 01 de {mes_rodape} de {ano}"
             ws.cell(row=ultima_linha, column=1).font = fonte_negrito
             ws.cell(row=ultima_linha, column=1).alignment = alinhamento_centro
 
+            # Assinaturas
             linha_assinatura = ultima_linha + 3
             ws.merge_cells(start_row=linha_assinatura, start_column=1, end_row=linha_assinatura, end_column=2)
             ws.cell(row=linha_assinatura, column=1).value = "________________________"
@@ -247,6 +258,7 @@ def gerar_relatorio():
     except Exception as e:
         messagebox.showerror("Erro", str(e))
 
+# --- INTERFACE ---
 root = tk.Tk()
 root.title("📊 Gerador de Relatório por Posto e Turno")
 root.geometry("500x350")
@@ -283,7 +295,7 @@ tk.Label(frame_data, text="Ano:", font=("Segoe UI", 11), background="#f4f4f4").g
 entry_ano = tk.Entry(frame_data, width=8)
 entry_ano.grid(row=0, column=6, padx=5)
 
-# --- CAMPOS CONTRATO / P.E. / PROCESSO --- 
+# --- CAMPOS CONTRATO / P.E. / PROCESSO ---
 frame_contrato = ttk.Frame(frame)
 frame_contrato.pack(pady=5)
 
